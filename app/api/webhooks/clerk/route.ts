@@ -90,8 +90,8 @@ export async function POST(req: Request) {
                 firstName: first_name || "",
                 lastName: last_name || "",
                 imageUrl: image_url || undefined,
-                // Default role for new users
-                role: "sales",
+                // Don't pass role to preserve existing user roles
+                // New users will get default "sales" role from upsertUser function
             })
 
             console.log(`User ${eventType === "user.created" ? "created" : "updated"} in Convex:`, clerkId)

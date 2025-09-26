@@ -4,6 +4,8 @@ import "./globals.css";
 import { ClerkProvider } from '@clerk/nextjs';
 import ConvexClientProvider from '../components/providers/ConvexClientProvider';
 import { UserSyncProvider } from '../components/auth/user-sync-provider';
+import { Suspense } from 'react';
+import { Toaster } from '../components/ui/sonner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +35,10 @@ export default function RootLayout({
         >
           <ConvexClientProvider>
             <UserSyncProvider>
-              {children}
+              <Suspense fallback={null}>
+                {children}
+                <Toaster />
+              </Suspense>
             </UserSyncProvider>
           </ConvexClientProvider>
         </body>
