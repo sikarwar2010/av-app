@@ -32,11 +32,15 @@ import {
 } from "lucide-react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { Doc, Id } from "@/convex/_generated/dataModel"
 import { useUser } from "@clerk/nextjs"
+import { toast } from "sonner"
+import { EnhancedInviteDialog } from "./enhanced-invite-dialog"
 import { EditUserDialog } from "./edit-user-dialog"
+import { UserPermissionsDialog } from "./user-permissions-dialog"
+import { PendingInvitations } from "./pending-invitations"
+import { RolePermissionsMatrix } from "./role-permissions-matrix"
 import { RoleGuard } from "@/components/auth/role-guard"
-import { toast } from 'sonner'
-import type { Doc, Id } from "@/convex/_generated/dataModel"
 
 const roleColors = {
     owner: "bg-purple-500/10 text-purple-500 border-purple-500/20",
@@ -57,7 +61,9 @@ export function UserManagementDashboard() {
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedRole, setSelectedRole] = useState<string>("all")
     const [selectedUser, setSelectedUser] = useState<Doc<"users"> | null>(null)
+    const [showInviteDialog, setShowInviteDialog] = useState(false)
     const [showEditDialog, setShowEditDialog] = useState(false)
+    const [showPermissionsDialog, setShowPermissionsDialog] = useState(false)
 
     const users = useQuery(
         api.users.getUsers,
@@ -70,17 +76,14 @@ export function UserManagementDashboard() {
             : "skip",
     )
 
-    // TODO: Implement getInvitations function in convex/users.ts
-    // const invitations = useQuery(api.users.getInvitations, user ? { clerkId: user.id } : "skip")
-    const invitations = []
+    const invitations = useQuery(api.settings.getPendingInvitations)
     const deactivateUser = useMutation(api.users.deactivateUser)
-    const updateUserRole = useMutation(api.users.updateUserRole)
 
-    const handleDeactivateUser = async (userId: string) => {
+    const handleDeactivateUser = async (userId: Id<"users">) => {
         if (!user) return
 
         try {
-            await deactivateUser({ clerkId: user.id, targetUserId: userId as Id<"users"> })
+            await deactivateUser({ clerkId: user.id, targetUserId: userId })
             toast("User deactivated successfully.")
         } catch (error) {
             toast("Failed to deactivate user.")
@@ -91,7 +94,7 @@ export function UserManagementDashboard() {
 
     const activeUsers = users?.filter((u) => u.isActive).length || 0
     const inactiveUsers = users?.filter((u) => !u.isActive).length || 0
-    const pendingInvites = invitations?.length || 0 // Will work when getInvitations is implemented
+    const pendingInvites = invitations?.length || 0
 
     return (
         <div className="space-y-6">
@@ -155,7 +158,7 @@ export function UserManagementDashboard() {
                             <CardDescription className="text-gray-400">Manage team members, roles, and permissions</CardDescription>
                         </div>
                         <RoleGuard permission="canManageUsers">
-                            <Button onClick={() => toast("Invite feature coming soon")} className="bg-purple-600 hover:bg-purple-700">
+                            <Button onClick={() => setShowInviteDialog(true)} className="bg-purple-600 hover:bg-purple-700">
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Invite User
                             </Button>
@@ -264,8 +267,8 @@ export function UserManagementDashboard() {
                                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                                 <DropdownMenuItem
                                                                     onClick={() => {
-                                                                        // TODO: Implement permissions dialog
-                                                                        toast("Permissions view coming soon")
+                                                                        setSelectedUser(user)
+                                                                        setShowPermissionsDialog(true)
                                                                     }}
                                                                 >
                                                                     <Shield className="mr-2 h-4 w-4" />
@@ -304,22 +307,27 @@ export function UserManagementDashboard() {
                         </TabsContent>
 
                         <TabsContent value="invitations">
-                            {/* <PendingInvitations invitations={invitations} /> */}
-                            <div className="text-center py-8 text-gray-400">Pending invitations will be displayed here</div>
+                            <PendingInvitations invitations={invitations || []} />
                         </TabsContent>
 
                         <TabsContent value="permissions">
-                            {/* <RolePermissionsMatrix /> */}
-                            <div className="text-center py-8 text-gray-400">Role permissions matrix will be displayed here</div>
+                            <RolePermissionsMatrix />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
 
             {/* Dialogs */}
+            <EnhancedInviteDialog open={showInviteDialog} onOpenChange={setShowInviteDialog} />
+
             {selectedUser && (
                 <>
                     <EditUserDialog open={showEditDialog} onOpenChange={setShowEditDialog} user={selectedUser} />
+                    <UserPermissionsDialog
+                        open={showPermissionsDialog}
+                        onOpenChange={setShowPermissionsDialog}
+                        user={selectedUser}
+                    />
                 </>
             )}
         </div>

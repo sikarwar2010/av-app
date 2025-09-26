@@ -69,7 +69,6 @@ export const getTeamMembers = query({
     },
 })
 
-// Invite team member
 export const inviteTeamMember = mutation({
     args: {
         email: v.string(),
@@ -87,6 +86,17 @@ export const inviteTeamMember = mutation({
             throw new Error("User with this email already exists")
         }
 
+        // Check for existing pending invitation
+        const existingInvitation = await ctx.db
+            .query("invitations")
+            .filter((q) => q.eq(q.field("email"), args.email))
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .first()
+
+        if (existingInvitation) {
+            throw new Error("Pending invitation already exists for this email")
+        }
+
         // Create invitation
         const invitationId = await ctx.db.insert("invitations", {
             email: args.email,
@@ -95,11 +105,75 @@ export const inviteTeamMember = mutation({
             status: "pending",
             createdAt: Date.now(),
             expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+            updatedAt: Date.now(),
+            token: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique token
         })
 
-        // In real app, send email invitation here
-
         return invitationId
+    },
+})
+
+export const resendInvitation = mutation({
+    args: {
+        invitationId: v.id("invitations"),
+    },
+    handler: async (ctx, args) => {
+        const invitation = await ctx.db.get(args.invitationId)
+
+        if (!invitation) {
+            throw new Error("Invitation not found")
+        }
+
+        if (invitation.status !== "pending") {
+            throw new Error("Can only resend pending invitations")
+        }
+
+        // Update invitation with new expiry and token
+        await ctx.db.patch(args.invitationId, {
+            expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
+            token: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            updatedAt: Date.now(),
+        })
+
+        return invitation
+    },
+})
+
+export const cancelInvitation = mutation({
+    args: {
+        invitationId: v.id("invitations"),
+    },
+    handler: async (ctx, args) => {
+        const invitation = await ctx.db.get(args.invitationId)
+
+        if (!invitation) {
+            throw new Error("Invitation not found")
+        }
+
+        if (invitation.status !== "pending") {
+            throw new Error("Can only cancel pending invitations")
+        }
+
+        // Update invitation status to cancelled
+        await ctx.db.patch(args.invitationId, {
+            status: "cancelled",
+            updatedAt: Date.now(),
+        })
+
+        return invitation
+    },
+})
+
+export const getPendingInvitations = query({
+    args: {},
+    handler: async (ctx, args) => {
+        const invitations = await ctx.db
+            .query("invitations")
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .order("desc")
+            .collect()
+
+        return invitations
     },
 })
 
@@ -252,53 +326,5 @@ export const getAuditLog = query({
             ip: "192.168.1.1", // Mock IP - in real app, track actual IPs
             details: activity.description,
         }))
-    },
-})
-
-// Get pending invitations
-export const getPendingInvitations = query({
-    args: {},
-    handler: async (ctx, args) => {
-        return await ctx.db
-            .query("invitations")
-            .filter((q) => q.eq(q.field("status"), "pending"))
-            .collect()
-    },
-})
-
-// Resend invitation
-export const resendInvitation = mutation({
-    args: {
-        invitationId: v.id("invitations"),
-    },
-    handler: async (ctx, args) => {
-        const invitation = await ctx.db.get(args.invitationId)
-        if (!invitation) {
-            throw new Error("Invitation not found")
-        }
-
-        // Update expiry date
-        await ctx.db.patch(args.invitationId, {
-            expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
-        })
-
-        // In real app, resend email invitation here
-        return { success: true }
-    },
-})
-
-// Cancel invitation
-export const cancelInvitation = mutation({
-    args: {
-        invitationId: v.id("invitations"),
-    },
-    handler: async (ctx, args) => {
-        const invitation = await ctx.db.get(args.invitationId)
-        if (!invitation) {
-            throw new Error("Invitation not found")
-        }
-
-        await ctx.db.delete(args.invitationId)
-        return { success: true }
     },
 })

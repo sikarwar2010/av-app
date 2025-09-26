@@ -26,6 +26,8 @@ export default defineSchema({
         status: v.string(), // "pending", "accepted", "expired"
         createdAt: v.number(),
         expiresAt: v.number(),
+        updatedAt: v.number(),
+        token: v.optional(v.string()),
     })
         .index("by_email", ["email"])
         .index("by_status", ["status"]),
