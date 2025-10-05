@@ -1,6 +1,3 @@
-// Shared types and constants that can be safely imported in browser code
-
-// User roles with hierarchical permissions
 export const USER_ROLES = {
     OWNER: "owner", // Full access to everything
     ADMIN: "admin", // Full access except billing/ownership
