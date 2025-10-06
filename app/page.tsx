@@ -10,7 +10,7 @@ export default function Home() {
         <UserButton />
       </Authenticated>
       <Unauthenticated>
-        <SignInButton/>
+        <SignInButton />
       </Unauthenticated>
       <h1 className="text-4xl font-bold">
         Welcome to <span className="text-blue-500">Clerk</span>

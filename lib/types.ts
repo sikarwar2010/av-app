@@ -56,3 +56,23 @@ export const ROLE_PERMISSIONS = {
         canExportData: false,
     },
 } as const
+
+// Shared Deal types for components
+import type { Id } from "@/convex/_generated/dataModel"
+
+export interface Deal {
+    _id: Id<"deals">
+    name: string
+    amount: number
+    stage: string
+    aiProbability?: number
+    probability: number
+    closeDate: number
+    owner: string
+    company?: {
+        name: string
+    }
+    contact?: {
+        name: string
+    }
+}
