@@ -23,6 +23,13 @@ interface ClerkWebhookEvent {
 }
 
 export async function POST(req: Request) {
+    // Verify webhook secret is configured
+    const webhookSecret = process.env.CLERK_WEBHOOK_SECRET
+    if (!webhookSecret) {
+        console.error("CLERK_WEBHOOK_SECRET is not configured")
+        return new NextResponse("Webhook secret not configured", { status: 500 })
+    }
+
     // Get the headers
     const headerPayload = await headers()
     const svix_id = headerPayload.get("svix-id")
@@ -31,17 +38,29 @@ export async function POST(req: Request) {
 
     // If there are no headers, error out
     if (!svix_id || !svix_timestamp || !svix_signature) {
-        return new Response("Error occurred -- no svix headers", {
+        console.error("Missing svix headers:", {
+            svix_id: !!svix_id,
+            svix_timestamp: !!svix_timestamp,
+            svix_signature: !!svix_signature
+        })
+        return new NextResponse("Error occurred -- no svix headers", {
             status: 400,
         })
     }
 
     // Get the body
-    const payload = await req.json()
+    let payload: unknown
+    try {
+        payload = await req.json()
+    } catch (err) {
+        console.error("Failed to parse webhook payload:", err)
+        return new NextResponse("Invalid JSON payload", { status: 400 })
+    }
+
     const body = JSON.stringify(payload)
 
     // Create a new Svix instance with your secret.
-    const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET || "")
+    const wh = new Webhook(webhookSecret)
 
     let evt: ClerkWebhookEvent
 
@@ -54,7 +73,7 @@ export async function POST(req: Request) {
         }) as ClerkWebhookEvent
     } catch (err) {
         console.error("Error verifying webhook:", err)
-        return new Response("Error occurred", {
+        return new NextResponse("Error occurred", {
             status: 400,
         })
     }
@@ -73,7 +92,7 @@ export async function POST(req: Request) {
             // Validate that email_addresses exists and is an array
             if (!email_addresses || !Array.isArray(email_addresses) || email_addresses.length === 0) {
                 console.error("No email addresses found for user:", clerkId)
-                return new Response("No email addresses found", { status: 400 })
+                return new NextResponse("No email addresses found", { status: 400 })
             }
 
             // Get primary email
@@ -81,7 +100,7 @@ export async function POST(req: Request) {
 
             if (!primaryEmail) {
                 console.error("No primary email found for user:", clerkId)
-                return new Response("No primary email found", { status: 400 })
+                return new NextResponse("No primary email found", { status: 400 })
             }
 
             await convex.mutation(api.users.upsertUser, {
@@ -100,20 +119,31 @@ export async function POST(req: Request) {
         if (eventType === "user.deleted") {
             const { id: clerkId } = evt.data
 
-            const user = await convex.query(api.users.getCurrentUser, { clerkId })
-            if (user) {
-                // For user deletion from webhook, we need to handle it differently
-                // since the user is already deleted from Clerk
-                await convex.mutation(api.users.deactivateUserByClerkId, {
-                    clerkId: clerkId,
-                })
-                console.log("User deactivated in Convex:", clerkId)
+            try {
+                const user = await convex.query(api.users.getCurrentUser, { clerkId })
+                if (user) {
+                    // For user deletion from webhook, we need to handle it differently
+                    // since the user is already deleted from Clerk
+                    await convex.mutation(api.users.deactivateUserByClerkId, {
+                        clerkId: clerkId,
+                    })
+                    console.log("User deactivated in Convex:", clerkId)
+                } else {
+                    console.log("User not found in Convex for deletion:", clerkId)
+                }
+            } catch (userError) {
+                console.error("Error handling user deletion:", userError)
+                // Don't fail the webhook for user deletion errors
             }
         }
 
-        return NextResponse.json({ message: "Webhook processed successfully" })
+        return NextResponse.json({
+            message: "Webhook processed successfully",
+            eventType,
+            userId: id
+        })
     } catch (error) {
         console.error("Error processing webhook:", error)
-        return new Response("Error processing webhook", { status: 500 })
+        return new NextResponse("Error processing webhook", { status: 500 })
     }
 }

@@ -153,7 +153,7 @@ export function AddDealDialog() {
                                 <SelectContent>
                                     {contacts?.contacts?.map((contact) => (
                                         <SelectItem key={contact._id} value={contact._id}>
-                                            {contact.name}
+                                            {`${contact.firstName} ${contact.lastName}`}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

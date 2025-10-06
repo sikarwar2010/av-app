@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
@@ -10,34 +10,63 @@ const isPublicRoute = createRouteMatcher([
     "/api/webhooks(.*)", // webhook endpoints
 ])
 
-// Define protected routes that require authentication
+// Define admin-only routes that require elevated permissions
+const isAdminRoute = createRouteMatcher([
+    "/users(.*)", // User management
+    "/settings(.*)", // System settings
+    "/admin(.*)", // Admin dashboard
+])
+
+// Define manager-level routes (admin + manager access)
+const isManagerRoute = createRouteMatcher([
+    "/reports(.*)", // Advanced reporting
+    "/analytics(.*)", // Data analytics
+])
+
+// Define standard protected routes that all authenticated users can access
 const isProtectedRoute = createRouteMatcher([
     "/dashboard(.*)",
     "/contacts(.*)",
     "/companies(.*)",
     "/deals(.*)",
     "/tasks(.*)",
-    "/reports(.*)",
-    "/settings(.*)",
-    "/users(.*)",
+    "/profile(.*)",
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-    const { userId } = await auth();
+    const { userId } = await auth()
+    const pathname = req.nextUrl.pathname
 
-    // If user is not authenticated and trying to access protected route
-    if (!userId && isProtectedRoute(req)) {
-        const { redirectToSignIn } = await auth();
-        return redirectToSignIn();
+    // Handle unauthenticated users
+    if (!userId) {
+        // Allow access to public routes
+        if (isPublicRoute(req)) {
+            return NextResponse.next()
+        }
+
+        // Redirect all other protected routes to sign-in
+        if (isProtectedRoute(req) || isManagerRoute(req) || isAdminRoute(req)) {
+            const signInUrl = new URL('/sign-in', req.url)
+            signInUrl.searchParams.set('redirect_url', req.url)
+            return NextResponse.redirect(signInUrl)
+        }
+
+        return NextResponse.next()
     }
 
-    // If user is authenticated and on root page, redirect to dashboard
-    if (userId && req.nextUrl.pathname === '/') {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
+    // Handle authenticated users
+    // Redirect from root to dashboard only for authenticated users
+    if (pathname === '/') {
+        return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
-    return NextResponse.next();
-});
+    // For protected routes, allow access (component-level guards will handle role-based access)
+    if (isAdminRoute(req) || isManagerRoute(req) || isProtectedRoute(req)) {
+        return NextResponse.next()
+    }
+
+    return NextResponse.next()
+})
 
 export const config = {
     matcher: [

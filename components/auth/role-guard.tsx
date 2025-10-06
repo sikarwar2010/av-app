@@ -36,8 +36,22 @@ export function RoleGuard({
         )
     }
 
-    // Return fallback if user is not authenticated or user data is not loaded
-    if (!user || !currentUser) {
+    // Show loading while user data is being fetched from Convex
+    if (isLoaded && user && currentUser === undefined && showLoading) {
+        return (
+            <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            </div>
+        )
+    }
+
+    // Return fallback if user is not authenticated
+    if (!user) {
+        return fallback || null
+    }
+
+    // Return fallback if user data is not available in Convex
+    if (!currentUser) {
         return fallback || null
     }
 
