@@ -1,24 +1,12 @@
 "use client";
 
 import type React from "react"
-import { useState } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useState, useEffect } from "react"
+import { UserButton } from "@clerk/nextjs"
 import { useUserSync } from "@/hooks/use-user-sync"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarProvider,
-    SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { RoleGuard } from "@/components/auth/role-guard"
 import { ROLE_PERMISSIONS, type UserRole } from "@/lib/types"
 import {
@@ -33,8 +21,13 @@ import {
     Search,
     Bell,
     UserCog,
+    Menu,
+    X,
     type LucideIcon,
 } from "lucide-react"
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from "@/lib/utils";
 
 const navigation: Array<{
     name: string
@@ -55,136 +48,193 @@ const navigation: Array<{
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const [searchQuery, setSearchQuery] = useState("")
-    const { user: clerkUser } = useUser()
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [isMobile, setIsMobile] = useState(false)
     const { user: currentUser } = useUserSync()
+    const pathname = usePathname()
 
-    const currentPath = typeof window !== "undefined" ? window.location.pathname : ""
+    // Check if mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 1024)
+            if (window.innerWidth >= 1024) {
+                setSidebarOpen(false)
+            }
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
     const updatedNavigation = navigation.map((item) => ({
         ...item,
-        current: currentPath === item.href,
+        current: pathname === item.href,
     }))
 
     return (
-        <SidebarProvider>
-            <div className="flex h-screen bg-background">
-                {/* Sidebar */}
-                <Sidebar className="border-r border-border/50">
-                    <SidebarHeader className="border-b border-border/50 p-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                                <Brain className="w-5 h-5 text-primary-foreground" />
+        <div className="min-h-screen bg-gray-50/50">
+            {/* Full-width Enterprise Header */}
+            <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+                <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+                    {/* Left side - Logo and Menu */}
+                    <div className="flex items-center gap-4">
+                        {/* Mobile menu button */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="lg:hidden"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                        >
+                            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        </Button>
+
+                        {/* Logo */}
+                        <Link href="/dashboard" className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <Brain className="w-5 h-5 text-white" />
                             </div>
-                            <div>
-                                <h2 className="text-lg font-bold">SalesAI</h2>
-                                <p className="text-xs text-muted-foreground">AI-Powered CRM</p>
+                            <div className="hidden sm:block">
+                                <h1 className="text-xl font-bold text-gray-900">AV Valve Ltd</h1>
+                                <p className="text-xs text-gray-500 leading-none">Enterprise CRM</p>
                             </div>
+                        </Link>
+                    </div>
+
+                    {/* Center - Search (hidden on mobile) */}
+                    <div className="hidden md:flex flex-1 max-w-lg mx-8">
+                        <div className="relative w-full">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                placeholder="Search contacts, deals, companies..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 w-full bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                            />
                         </div>
-                    </SidebarHeader>
+                    </div>
 
-                    <SidebarContent className="p-4">
-                        <SidebarMenu>
-                            {updatedNavigation.map((item) => (
-                                <SidebarMenuItem key={item.name}>
-                                    {item.permission ? (
-                                        <RoleGuard permission={item.permission}>
-                                            <SidebarMenuButton
-                                                asChild
-                                                isActive={item.current}
-                                                className="w-full justify-start gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-accent hover:text-accent-foreground"
-                                            >
-                                                <a href={item.href}>
-                                                    <item.icon className="w-4 h-4" />
-                                                    {item.name}
-                                                </a>
-                                            </SidebarMenuButton>
-                                        </RoleGuard>
-                                    ) : (
-                                        <SidebarMenuButton
-                                            asChild
-                                            isActive={item.current}
-                                            className="w-full justify-start gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-accent hover:text-accent-foreground"
-                                        >
-                                            <a href={item.href}>
-                                                <item.icon className="w-4 h-4" />
-                                                {item.name}
-                                            </a>
-                                        </SidebarMenuButton>
-                                    )}
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarContent>
+                    {/* Right side - Actions and User */}
+                    <div className="flex items-center gap-2 lg:gap-4">
+                        {/* Mobile search button */}
+                        <Button variant="ghost" size="sm" className="md:hidden">
+                            <Search className="h-4 w-4" />
+                        </Button>
 
-                    <SidebarFooter className="border-t border-border/50 p-4">
-                        {currentUser && (
-                            <div className="flex items-center gap-3">
-                                <Avatar className="w-8 h-8">
-                                    <AvatarImage src={currentUser.imageUrl || clerkUser?.imageUrl} />
-                                    <AvatarFallback>
-                                        {currentUser.firstName.charAt(0)}
-                                        {currentUser.lastName.charAt(0)}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">
+                        {/* Notifications */}
+                        <Button variant="ghost" size="sm" className="relative">
+                            <Bell className="h-4 w-4" />
+                            <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-red-500 text-white border-white">3</Badge>
+                        </Button>
+
+                        {/* User Profile */}
+                        <div className="flex items-center gap-3">
+                            {currentUser && (
+                                <div className="hidden lg:block text-right">
+                                    <p className="text-sm font-medium text-gray-900">
                                         {currentUser.firstName} {currentUser.lastName}
                                     </p>
-                                    <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
+                                    <p className="text-xs text-gray-500 capitalize">{currentUser.role}</p>
                                 </div>
-                            </div>
-                        )}
-                    </SidebarFooter>
-                </Sidebar>
+                            )}
+                            <UserButton
+                                appearance={{
+                                    elements: {
+                                        avatarBox: "w-8 h-8"
+                                    }
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </header>
 
-                {/* Main Content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Top Navigation */}
-                    <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm w-full">
-                        <div className="flex items-center justify-between px-6 py-4">
-                            <div className="flex items-center gap-4">
-                                <SidebarTrigger />
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search contacts, deals, companies..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="pl-10 w-80 bg-background/50"
-                                    />
+            <div className="flex">
+                {/* Sidebar Overlay for Mobile */}
+                {isMobile && sidebarOpen && (
+                    <div
+                        className="fixed inset-0 z-40 bg-black/50"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
+                {/* Sidebar */}
+                <aside className={cn(
+                    "fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 transform bg-white border-r border-gray-200 transition-transform duration-200 ease-in-out",
+                    "lg:static lg:translate-x-0",
+                    isMobile ? (sidebarOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
+                )}>
+                    {/* Navigation */}
+                    <nav className="h-full overflow-y-auto px-3 py-4">
+                        <div className="space-y-1">
+                            {updatedNavigation.map((item) => {
+                                const ItemComponent = item.permission ? (
+                                    <RoleGuard key={item.name} permission={item.permission}>
+                                        <Link
+                                            href={item.href}
+                                            onClick={() => isMobile && setSidebarOpen(false)}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                                item.current
+                                                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
+                                                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                                            )}
+                                        >
+                                            <item.icon className={cn(
+                                                "h-4 w-4 flex-shrink-0",
+                                                item.current ? "text-blue-600" : "text-gray-400"
+                                            )} />
+                                            {item.name}
+                                        </Link>
+                                    </RoleGuard>
+                                ) : (
+                                    <Link
+                                        key={item.name}
+                                        href={item.href}
+                                        onClick={() => isMobile && setSidebarOpen(false)}
+                                        className={cn(
+                                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                            item.current
+                                                ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
+                                                : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                                        )}
+                                    >
+                                        <item.icon className={cn(
+                                            "h-4 w-4 flex-shrink-0",
+                                            item.current ? "text-blue-600" : "text-gray-400"
+                                        )} />
+                                        {item.name}
+                                    </Link>
+                                )
+                                return ItemComponent
+                            })}
+                        </div>
+
+                        {/* Sidebar Footer */}
+                        <div className="absolute bottom-4 left-3 right-3">
+                            <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 border border-blue-200">
+                                <div className="flex items-center gap-2 text-xs text-blue-600">
+                                    <Brain className="h-4 w-4" />
+                                    <span className="font-medium">AI Assistant Ready</span>
                                 </div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="sm" className="relative">
-                                    <Bell className="w-4 h-4" />
-                                    <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-destructive">3</Badge>
-                                </Button>
-
-                                {currentUser && (
-                                    <div className="flex items-center gap-2">
-                                        <Avatar className="w-8 h-8">
-                                            <AvatarImage src={currentUser.imageUrl || clerkUser?.imageUrl} />
-                                            <AvatarFallback>
-                                                {currentUser.firstName?.charAt(0)}
-                                                {currentUser.lastName?.charAt(0)}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="text-sm">
-                                            <p className="font-medium">
-                                                {currentUser.firstName} {currentUser.lastName}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">{currentUser.role}</p>
-                                        </div>
-                                    </div>
-                                )}
+                                <p className="text-xs text-blue-500 mt-1">Get insights on your sales data</p>
                             </div>
                         </div>
-                    </header>
+                    </nav>
+                </aside>
 
-                    {/* Page Content */}
-                    <main className="flex-1 overflow-auto p-6">{children}</main>
-                </div>
+                {/* Main Content */}
+                <main className={cn(
+                    "flex-1 min-h-[calc(100vh-4rem)]",
+                    "lg:ml-8" // Desktop: account for fixed sidebar
+                )}>
+                    <div className="h-full bg-white">
+                        {/* Content Container */}
+                        <div className="h-full p-4 lg:p-6 xl:p-8">
+                            {children}
+                        </div>
+                    </div>
+                </main>
             </div>
-        </SidebarProvider>
+        </div>
     )
 }
