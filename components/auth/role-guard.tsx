@@ -11,12 +11,32 @@ interface RoleGuardProps {
     permission?: keyof (typeof ROLE_PERMISSIONS)[UserRole]
     roles?: UserRole[]
     fallback?: ReactNode
+    showLoading?: boolean
 }
 
-export function RoleGuard({ children, permission, roles, fallback }: RoleGuardProps) {
-    const { user } = useUser()
-    const currentUser = useQuery(api.users.getCurrentUser, user ? { clerkId: user.id } : "skip")
+export function RoleGuard({
+    children,
+    permission,
+    roles,
+    fallback,
+    showLoading = false
+}: RoleGuardProps) {
+    const { user, isLoaded } = useUser()
+    const currentUser = useQuery(
+        api.users.getCurrentUser,
+        user ? { clerkId: user.id } : "skip"
+    )
 
+    // Show loading state if requested and auth is still loading
+    if (!isLoaded && showLoading) {
+        return (
+            <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            </div>
+        )
+    }
+
+    // Return fallback if user is not authenticated or user data is not loaded
     if (!user || !currentUser) {
         return fallback || null
     }

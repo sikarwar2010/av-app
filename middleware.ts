@@ -1,7 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server';
 
+// Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
+    "/sign-in(.*)",
+    "/sign-up(.*)",
+    "/", // root page
+    "/unauthorized", // unauthorized page
+    "/api/webhooks(.*)", // webhook endpoints
+])
+
+// Define protected routes that require authentication
+const isProtectedRoute = createRouteMatcher([
     "/dashboard(.*)",
     "/contacts(.*)",
     "/companies(.*)",
@@ -10,15 +20,20 @@ const isPublicRoute = createRouteMatcher([
     "/reports(.*)",
     "/settings(.*)",
     "/users(.*)",
-    "/api(.*)",
 ])
 
 export default clerkMiddleware(async (auth, req) => {
     const { userId } = await auth();
 
-    if (!userId && isPublicRoute(req)) {
+    // If user is not authenticated and trying to access protected route
+    if (!userId && isProtectedRoute(req)) {
         const { redirectToSignIn } = await auth();
         return redirectToSignIn();
+    }
+
+    // If user is authenticated and on root page, redirect to dashboard
+    if (userId && req.nextUrl.pathname === '/') {
+        return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
     return NextResponse.next();
