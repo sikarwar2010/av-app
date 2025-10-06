@@ -85,7 +85,7 @@ export default defineSchema({
         rating: v.string(), // "hot", "warm", "cold"
         owner: v.string(), // user ID
         aiScore: v.optional(v.number()),
-        sentiment: v.optional(v.string()), // "positive", "neutral", "negative"
+        sentiment: v.optional(v.union(v.literal("positive"), v.literal("neutral"), v.literal("negative"))),
         lastActivity: v.optional(v.number()),
         createdAt: v.number(),
         updatedAt: v.number(),
