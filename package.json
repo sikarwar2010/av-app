@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "next dev --turbopack",
+    "dev:frontend": "next dev --turbopack --experimental-https",
     "dev:backend": "convex dev",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean": "rmdir /s /q .next 2>nul || rm -rf .next",
+    "dev:clean": "npm run clean && npm run dev"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.32.2",
